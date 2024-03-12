@@ -14,13 +14,13 @@
 //---------------------------------------------------------------------
 
 // const int max_distance = 350;
-const int baseSpeed = 150; // Need optimizations
+const int baseSpeed = 200; // Need optimizations
 const int lExtraSpeedSpeed = 30;
 const int turnTime = 350;
 const int uTurnTime = 750;
 const int goForwardTime = 250;
-const int thershold = 40;
-const int fThershold = 20;
+const int thershold = 10;
+const int fThershold = 12;
 /*
 const int errorMargin = 5;
 const int pathWidth = 20;
@@ -30,17 +30,18 @@ const int targetWidth = 40 */
 //---------------------Ultrasonic sensor pins--------------------------
 //---------------------------------------------------------------------
 
-const int lTrig = A0, fTrig = A1, rTrig = A2;
-const int lEcho = A3, fEcho = A4, rEcho = A5;
+const int lTrig = 0, fTrig = 2, rTrig = 4;
+const int lEcho = 1, fEcho = 3, rEcho = 5;
 
 //---------------------------------------------------------------------
 //---------------------------Motor pins--------------------------------
 //---------------------------------------------------------------------
 
-const int lBack = 1 , lForward = 2 , rBack = 4, rForward = 5; // check pins
+const int lBack = 7 , lForward = 8 , rBack  = 9, rForward = 10; // check pins
 
 int lDist, rDist, fDist;
 int mean;
+int sum;
 
 int LmotorSpeed = baseSpeed, RmotorSpeed = baseSpeed;
 
@@ -49,11 +50,19 @@ int LmotorSpeed = baseSpeed, RmotorSpeed = baseSpeed;
 //---------------------------------------------------------------------
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(19200);
   pinMode(rBack, OUTPUT);
   pinMode(rForward, OUTPUT);
   pinMode(lBack, OUTPUT);
   pinMode(lForward, OUTPUT);
+
+  pinMode(lTrig, OUTPUT);  
+	pinMode(lEcho, INPUT);  
+  pinMode(fTrig, OUTPUT);  
+	pinMode(fEcho, INPUT);  
+  pinMode(rTrig, OUTPUT);  
+	pinMode(rEcho, INPUT);  
+
 }
 
 //---------------------------------------------------------------------
@@ -62,9 +71,13 @@ void setup() {
 
 void loop() { //NEED OPTIMIZATION
   readSensors();
+	delay(50);  
   stabilize();
-  decide();
+	delay(50);  
+  decide2();
+	delay(50);  
   stopAll();
+	delay(50);  
 }
 
 //---------------------------------------------------------------------
@@ -87,7 +100,7 @@ int readDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-  return pulseIn(echoPin, HIGH) / 58;
+  return pulseIn(echoPin, HIGH)/58;
 }
 
 //---------------------------------------------------------------------
@@ -105,8 +118,22 @@ void stopAll() {
 //-Function to calculate the mean distance from left and right sensors-
 //---------------------------------------------------------------------
 
-void stabilize() { //NEED OPTIMIZATION
+void stabilize() {
   mean = (lDist + rDist) / 2;
+
+  int desiredMean = 4;
+  int error = mean - desiredMean;
+
+  if (error > 0) {
+    LmotorSpeed = baseSpeed - error;
+    RmotorSpeed = baseSpeed + error;
+  } else if (error < 0) {
+    RmotorSpeed = baseSpeed + error;
+    LmotorSpeed = baseSpeed - error;
+  } else {
+    LmotorSpeed = baseSpeed;
+    RmotorSpeed = baseSpeed;
+  }
 }
 
 //---------------------------------------------------------------------
@@ -118,6 +145,7 @@ void goForward() {
   digitalWrite(lBack, LOW);
   analogWrite(rForward, RmotorSpeed);
   digitalWrite(rBack, LOW);
+  Serial.println("Going forward");
   delay(goForwardTime);
 }
 
@@ -130,6 +158,7 @@ void lTurn() {
   digitalWrite(lBack, HIGH);
   digitalWrite(rForward, HIGH);
   digitalWrite(rBack, LOW);
+  Serial.println("Turning left");
   delay(turnTime);
 }
 
@@ -142,6 +171,7 @@ void rTurn() {
   digitalWrite(rBack, HIGH);
   digitalWrite(lForward, HIGH);
   digitalWrite(lBack, LOW);
+  Serial.println("Turning right");
   delay(turnTime);
 }
 
@@ -154,7 +184,9 @@ void uTurn() {
   digitalWrite(lBack, HIGH);
   digitalWrite(rForward, HIGH);
   digitalWrite(rBack, LOW);
+  Serial.println("Turning u");
   delay(uTurnTime);
+  
 }
 
 //---------------------------------------------------------------------
@@ -162,7 +194,13 @@ void uTurn() {
 //---------------------------------------------------------------------
 
 bool isAtGoal(){ // needs to be implemented
-  
+  if((lDist>=15 && lDist<=30) && (rDist>=15 && rDist<=30)){
+    Serial.println("We are on the objective");
+    return true;
+  }
+  else{
+    return false;
+  }
 }
 
 //---------------------------------------------------------------------
@@ -170,18 +208,18 @@ bool isAtGoal(){ // needs to be implemented
 //---------------------------------------------------------------------
 
 void decide() { // may need optimization
-  if (isAtGoal()) {
-    stopAll();
+    if (isAtGoal()) {
+      stopAll();
   } else if (fDist > fThershold) {
-    goForward();
+      goForward();
   } else {
-    uTurn();
+      uTurn();
 
     if (rDist > thershold) {
       rTurn();
-    } else if (lDist > thershold) {
+    }else if (lDist > thershold) {
       lTurn();
-    } else {
+    }else {
       uTurn();
     }
   }
@@ -192,13 +230,13 @@ void decide() { // may need optimization
 //---------------------------------------------------------------------
 
 void decide2() { //NEED OPTIMIZATION
-  if (lDist > thershold) {
-    lTurn();
+    if (lDist > thershold) {
+      lTurn();
   } else if (rDist > thershold) {
-    rTurn();
+      rTurn();
   } else if (fDist > fThershold) {
-    goForward();
+      goForward();
   } else {
-    uTurn();
+      uTurn();
   }
 }
