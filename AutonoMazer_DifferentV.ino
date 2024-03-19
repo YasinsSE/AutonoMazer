@@ -43,6 +43,9 @@ NewPing sonarFront(frontTrig, frontEcho, MAX_DISTANCE);
 NewPing sonarLeft(leftTrig, leftEcho, MAX_DISTANCE);
 NewPing sonarRight(rightTrig, rightEcho, MAX_DISTANCE);
 
+#define MAZE_SIZE_X 20
+#define MAZE_SIZE_Y 20
+
 const int baseSpeed = 200; // Need optimizations
 const int lExtraSpeedSpeed = 30;
 const int turnTime = 350;
@@ -85,21 +88,94 @@ void setup() {
 }
 
 //---------------------------------------------------------------------
+//---------------------Flood-fill algorithms---------------------------
+//---------------------------------------------------------------------
+
+bool visited[MAZE_SIZE_X][MAZE_SIZE_Y] = {false};
+
+bool isVisited(int x, int y) {
+  // Check if the coordinates are within the maze boundaries
+  if (x >= 0 && x < MAZE_SIZE_X && y >= 0 && y < MAZE_SIZE_Y) {
+    return visited[x][y];
+  } else {
+    // If coordinates are outside maze boundaries, consider it visited
+    return true;
+  }
+}
+
+// Function to mark a cell at coordinates (x, y) as visited
+void markVisited(int x, int y) {
+  // Check if the coordinates are within the maze boundaries
+  if (x >= 0 && x < MAZE_SIZE_X && y >= 0 && y < MAZE_SIZE_Y) {
+    visited[x][y] = true;
+  }
+}
+
+bool isLeftCellFree(int x, int y) {
+  return (x > 0 && !isObstacle(x - 1, y)); // Assuming isObstacle function checks if there's an obstacle at the given coordinates
+}
+
+bool isFrontCellFree(int x, int y) {
+  return (y < MAZE_SIZE_Y - 1 && !isObstacle(x, y + 1)); // Assuming isObstacle function checks if there's an obstacle at the given coordinates
+}
+
+bool isRightCellFree(int x, int y) {
+  return (x < MAZE_SIZE_X - 1 && !isObstacle(x + 1, y)); // Assuming isObstacle function checks if there's an obstacle at the given coordinates
+}
+
+// Function to check if there is an obstacle at coordinates (x, y)
+bool isObstacle(int x, int y) {
+ 
+  const int obstacleThreshold = 8; // Example threshold value
+  
+  // Check the sensor readings to determine if there is an obstacle
+  if (x >= 0 && x < MAZE_SIZE_X && y >= 0 && y < MAZE_SIZE_Y) {
+    // Check the distance readings from left, front, and right sensors
+    if (lDist <= obstacleThreshold && y > 0) {
+      return true; // Obstacle detected on the left side
+    }
+    if (fDist <= obstacleThreshold && x < MAZE_SIZE_X - 1) {
+      return true; // Obstacle detected in front
+    }
+    if (rDist <= obstacleThreshold && y < MAZE_SIZE_Y - 1) {
+      return true; // Obstacle detected on the right side
+    }
+  }
+  // No obstacle detected at the given coordinates
+  return false;
+}
+
+
+//---------------------------------------------------------------------
 //----------------------Main loop function-----------------------------
 //---------------------------------------------------------------------
 
-void loop() { //NEED OPTIMIZATION
-  readSensors();
-
-  decide();
-
-  // Check if the robot has reached the goal
+void loop() {
+  readSensors(); // Read sensor data
+  
   if (isAtObjective()) {
-    stopMotors();
+    stopMotors(); // Stop if the goal is reached
     Serial.println("Goal reached!");
-    while (true); // Stay in a loop forever, indicating that the goal has been reached
+    while (true); // Stay in a loop forever
+  }
+  
+  // Check if the current cell has been visited
+  if (!isVisited()) {
+    markVisited(); // Mark the current cell as visited
+  }
+  
+  // Explore neighboring cells
+  if (isLeftCellFree()) {
+    lTurn(); // Turn left if the left cell is free
+  } else if (isFrontCellFree()) {
+    goForward(); // Go forward if the front cell is free
+  } else if (isRightCellFree()) {
+    rTurn(); // Turn right if the right cell is free
+  } else {
+    uTurn(); // Make a U-turn if no free cells are available
   }
 }
+
 
 //---------------------------------------------------------------------
 //--------------Function to read sensor distances----------------------
@@ -117,7 +193,7 @@ void readSensors() {
 
 int readDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
-  delayMicroseconds(4);
+  delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
@@ -241,71 +317,5 @@ bool isAtObjective(){
     return true;
   } else {
     return false;
-  }
-}
-
-//---------------------------------------------------------------------
-//--------Function to make decisions based on sensor readings----------
-//---------------------------------------------------------------------
-
-void decide() {
-  // Perform obstacle detection
-  int frontDistance = sonarFront.ping_cm();
-  int leftDistance = sonarLeft.ping_cm();
-  int rightDistance = sonarRight.ping_cm();
-
-  // Adjust behavior based on sensor readings
-  if (frontDistance > 0 && frontDistance <= 20) { // If obstacle detected in front
-    if (leftDistance > 0 && leftDistance <= 20) { // If obstacle detected on left
-      // Turn right
-      rTurn();
-    } else if (rightDistance > 0 && rightDistance <= 20) { // If obstacle detected on right
-      // Turn left
-      lTurn();
-    } else { // If no obstacles on left or right
-      // Turn right
-      rTurn();
-    }
-  } else { // No obstacle detected in front
-    // Move forward
-    goForward();
-  }
-}
-
-//---------------------------------------------------------------------
-//---Alternative function to make decisions based on sensor readings---
-//---------------------------------------------------------------------
-
-void decide2() { // may need optimization
-    if (isAtObjective()) {
-      stopMotors();
-  } else if (fDist > fThershold) {
-      goForward();
-  } else {
-      uTurn();
-
-    if (rDist > thershold) {
-      rTurn();
-    }else if (lDist > thershold) {
-      lTurn();
-    }else {
-      uTurn();
-    }
-  }
-}
-
-//---------------------------------------------------------------------
-//---Alternative function to make decisions based on sensor readings---
-//---------------------------------------------------------------------
-
-void decide3() { //NEED OPTIMIZATION
-    if (lDist > thershold) {
-      lTurn();
-  } else if (rDist > thershold) {
-      rTurn();
-  } else if (fDist > fThershold) {
-      goForward();
-  } else {
-      uTurn();
   }
 }
