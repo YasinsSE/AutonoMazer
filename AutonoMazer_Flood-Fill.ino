@@ -28,8 +28,8 @@
 //---------------------------Motor pins--------------------------------
 //---------------------------------------------------------------------
 
-#define LEFT_MOTOR_ENABLE 8
-#define LEFT_MOTOR_IN1 9
+#define LEFT_MOTOR_ENABLE 9
+#define LEFT_MOTOR_IN1 8
 #define LEFT_MOTOR_IN2 10
 #define RIGHT_MOTOR_ENABLE 11
 #define RIGHT_MOTOR_IN1 12
@@ -46,14 +46,17 @@ NewPing sonarRight(rightTrig, rightEcho, MAX_DISTANCE);
 #define MAZE_SIZE_X 20
 #define MAZE_SIZE_Y 20
 
+int currentX = 0;
+int currentY = 0;
+
 const int baseSpeed = 200; // Need optimizations
 const int lExtraSpeedSpeed = 30;
 const int turnTime = 350;
 const int uTurnTime = 750;
 const int goForwardTime = 250;
+/*
 const int thershold = 10;
 const int fThershold = 12;
-/*
 const int errorMargin = 5;
 const int pathWidth = 20;
 const int targetWidth = 40 */
@@ -126,7 +129,7 @@ bool isRightCellFree(int x, int y) {
 // Function to check if there is an obstacle at coordinates (x, y)
 bool isObstacle(int x, int y) {
  
-  const int obstacleThreshold = 8; // Example threshold value
+  const int obstacleThreshold = 5; // Example threshold value
   
   // Check the sensor readings to determine if there is an obstacle
   if (x >= 0 && x < MAZE_SIZE_X && y >= 0 && y < MAZE_SIZE_Y) {
@@ -145,6 +148,11 @@ bool isObstacle(int x, int y) {
   return false;
 }
 
+void updatePosition(int deltaX, int deltaY) {
+  currentX += deltaX;
+  currentY += deltaY;
+}
+
 
 //---------------------------------------------------------------------
 //----------------------Main loop function-----------------------------
@@ -160,16 +168,16 @@ void loop() {
   }
   
   // Check if the current cell has been visited
-  if (!isVisited()) {
-    markVisited(); // Mark the current cell as visited
+  if (!isVisited(currentX,currentY)) {
+    markVisited(currentX, currentY); // Mark the current cell as visited
   }
   
   // Explore neighboring cells
-  if (isLeftCellFree()) {
+  if (isLeftCellFree(currentX, currentY)) {
     lTurn(); // Turn left if the left cell is free
-  } else if (isFrontCellFree()) {
+  } else if (isFrontCellFree(currentX, currentY)) {
     goForward(); // Go forward if the front cell is free
-  } else if (isRightCellFree()) {
+  } else if (isRightCellFree(currentX, currentY)) {
     rTurn(); // Turn right if the right cell is free
   } else {
     uTurn(); // Make a U-turn if no free cells are available
@@ -240,8 +248,9 @@ void goForward() {
   digitalWrite(LEFT_MOTOR_IN2, LOW);
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
-  analogWrite(LEFT_MOTOR_ENABLE, 225);
-  analogWrite(RIGHT_MOTOR_ENABLE, 225);
+  analogWrite(LEFT_MOTOR_ENABLE, 200);
+  analogWrite(RIGHT_MOTOR_ENABLE, 200);
+  updatePosition(0, 1);
   Serial.println("Going forward");
   delay(goForwardTime);
 }
@@ -255,8 +264,9 @@ void lTurn() {
   digitalWrite(LEFT_MOTOR_IN2, HIGH);
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
-  analogWrite(LEFT_MOTOR_ENABLE, 180);
-  analogWrite(RIGHT_MOTOR_ENABLE, 180);
+  analogWrite(LEFT_MOTOR_ENABLE, 200);
+  analogWrite(RIGHT_MOTOR_ENABLE, 200);
+  updatePosition(-1, 0);
   Serial.println("Turning left");
   delay(turnTime);
 }
@@ -270,8 +280,9 @@ void rTurn() {
   digitalWrite(LEFT_MOTOR_IN2, LOW);
   digitalWrite(RIGHT_MOTOR_IN1, LOW);
   digitalWrite(RIGHT_MOTOR_IN2, HIGH);
-  analogWrite(LEFT_MOTOR_ENABLE, 180); 
-  analogWrite(RIGHT_MOTOR_ENABLE, 180);
+  analogWrite(LEFT_MOTOR_ENABLE, 200); 
+  analogWrite(RIGHT_MOTOR_ENABLE, 200);
+  updatePosition(1, 0);
   Serial.println("Turning right");
   delay(turnTime);
 }
@@ -290,8 +301,8 @@ void uTurn() {
   analogWrite(LEFT_MOTOR_ENABLE, 200); 
   analogWrite(RIGHT_MOTOR_ENABLE, 200);
   delay(uTurnTime);
-
   stopMotors();
+  updatePosition(0, -1);
   Serial.println("Turning u");
 
   
