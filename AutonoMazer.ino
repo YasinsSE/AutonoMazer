@@ -9,37 +9,59 @@
  * and sensor reading functions to make decisions based on sensor readings.
  */
 
-//---------------------------------------------------------------------
-//--------------Constants for motor speeds and timing------------------
-//---------------------------------------------------------------------
-
-// const int max_distance = 350;
-const int baseSpeed = 200; // Need optimizations
-const int lExtraSpeedSpeed = 30;
-const int turnTime = 350;
-const int uTurnTime = 750;
-const int goForwardTime = 250;
-const int thershold = 10;
-const int fThershold = 12;
-/*
-const int errorMargin = 5;
-const int pathWidth = 20;
-const int targetWidth = 40 */
+#include <NewPing.h>
 
 //---------------------------------------------------------------------
 //---------------------Ultrasonic sensor pins--------------------------
 //---------------------------------------------------------------------
 
-const int lTrig = 0, fTrig = 2, rTrig = 4;
-const int lEcho = 1, fEcho = 3, rEcho = 5;
+#define leftTrig 0
+#define leftEcho 1
+#define frontTrig 2
+#define frontEcho 3
+#define rightTrig 4
+#define rightEcho 5
+
+#define MAX_DISTANCE 350
+
+NewPing sonarLeft(leftTrig, leftEcho, MAX_DISTANCE);
+NewPing sonarFront(frontTrig, frontEcho, MAX_DISTANCE);
+NewPing sonarRight(rightTrig, rightEcho, MAX_DISTANCE);
 
 //---------------------------------------------------------------------
 //---------------------------Motor pins--------------------------------
 //---------------------------------------------------------------------
 
-const int lBack = 7 , lForward = 8 , rBack  = 9, rForward = 10; // check pins
+#define LEFT_MOTOR_ENABLE 9
+#define LEFT_MOTOR_IN1 6
+#define LEFT_MOTOR_IN2 7
+#define RIGHT_MOTOR_ENABLE 10
+#define RIGHT_MOTOR_IN1 12
+#define RIGHT_MOTOR_IN2 13
 
-int lDist, rDist, fDist;
+//---------------------------------------------------------------------
+//--------------Constants for motor speeds and timing------------------
+//---------------------------------------------------------------------
+
+float leftDistance, rightDistance, frontDistance;
+float duration;
+
+const int baseSpeed = 225; // Need optimizations
+const int uTurnSpeed = 120;
+const int sideTurnSpeed = 150;
+const int lExtraSpeedSpeed = 30;
+const int turnTime = 450;
+const int uTurnTime = 750;
+const int goForwardTime = 250;
+// Time = Angle * Wheelbase/ Speed
+/*
+const int thershold = 10;
+const int fThershold = 12;
+const int errorMargin = 5;
+const int pathWidth = 20;
+const int targetWidth = 40 */
+
+
 int mean;
 int sum;
 
@@ -51,67 +73,72 @@ int LmotorSpeed = baseSpeed, RmotorSpeed = baseSpeed;
 
 void setup() {
   Serial.begin(19200);
-  pinMode(rBack, OUTPUT);
-  pinMode(rForward, OUTPUT);
-  pinMode(lBack, OUTPUT);
-  pinMode(lForward, OUTPUT);
+  pinMode(LEFT_MOTOR_ENABLE, OUTPUT);
+  pinMode(LEFT_MOTOR_IN1, OUTPUT);
+  pinMode(LEFT_MOTOR_IN2, OUTPUT);
+  pinMode(RIGHT_MOTOR_ENABLE, OUTPUT);
+  pinMode(RIGHT_MOTOR_IN1, OUTPUT);
+  pinMode(RIGHT_MOTOR_IN2, OUTPUT);
 
-  pinMode(lTrig, OUTPUT);  
-	pinMode(lEcho, INPUT);  
-  pinMode(fTrig, OUTPUT);  
-	pinMode(fEcho, INPUT);  
-  pinMode(rTrig, OUTPUT);  
-	pinMode(rEcho, INPUT);  
-
+  /*
+  pinMode(leftTrig, OUTPUT);  
+	pinMode(leftEcho, INPUT);  
+  pinMode(frontTrig, OUTPUT);  
+	pinMode(frontEcho, INPUT);  
+  pinMode(rightTrig, OUTPUT);  
+	pinMode(rightEcho, INPUT);  
+*/
 }
+
 
 //---------------------------------------------------------------------
 //----------------------Main loop function-----------------------------
 //---------------------------------------------------------------------
 
-void loop() { //NEED OPTIMIZATION
-  readSensors();
-	delay(50);  
-  stabilize();
-	delay(50);  
-  decide2();
-	delay(50);  
-  stopAll();
-	delay(50);  
+void loop() {
+  readDistances(); // Read sensor data
+  
+  if(frontDistance > 10){
+    while(frontDistance >10){
+    goForward();
+    readDistances();
+    delay(50);
+    }
+  }
+  else{ stopMotors(); }
+
+  if(leftDistance > rightDistance && leftDistance >= 10){
+    turnLeft();
+  }
+  else if(rightDistance > leftDistance && rightDistance >= 10){
+    turnRight();
+  }
+  else if((leftDistance < 10) && (rightDistance < 10) && (frontDistance < 10)){
+    uTurn();
+  }
+  delay(500);
 }
 
-//---------------------------------------------------------------------
-//--------------Function to read sensor distances----------------------
-//---------------------------------------------------------------------
 
-void readSensors() {
-  lDist = readDistance(lTrig, lEcho);
-  fDist = readDistance(fTrig, fEcho);
-  rDist = readDistance(rTrig, rEcho);
-}
 
 //---------------------------------------------------------------------
 //----------Function to measure distances with sensor------------------
 //---------------------------------------------------------------------
 
-int readDistance(int trigPin, int echoPin) {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(4);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  return pulseIn(echoPin, HIGH)/58;
+void readDistances() {
+  leftDistance = sonarLeft.ping_cm();
+  frontDistance = sonarFront.ping_cm();
+  rightDistance = sonarRight.ping_cm();
+
 }
 
 //---------------------------------------------------------------------
 //----------------Function to stop all motors--------------------------
 //---------------------------------------------------------------------
 
-void stopAll() {
-  digitalWrite(rBack, LOW);
-  digitalWrite(rForward, LOW);
-  digitalWrite(lBack, LOW);
-  digitalWrite(lForward, LOW);
+void stopMotors() {
+  digitalWrite(LEFT_MOTOR_ENABLE, LOW);
+  digitalWrite(RIGHT_MOTOR_ENABLE, LOW);
 }
 
 //---------------------------------------------------------------------
@@ -119,7 +146,7 @@ void stopAll() {
 //---------------------------------------------------------------------
 
 void stabilize() {
-  mean = (lDist + rDist) / 2;
+  mean = (leftDistance + rightDistance) / 2;
 
   int desiredMean = 4;
   int error = mean - desiredMean;
@@ -141,38 +168,45 @@ void stabilize() {
 //---------------------------------------------------------------------
 
 void goForward() {
-  analogWrite(lForward, LmotorSpeed + lExtraSpeedSpeed);
-  digitalWrite(lBack, LOW);
-  analogWrite(rForward, RmotorSpeed);
-  digitalWrite(rBack, LOW);
+  digitalWrite(LEFT_MOTOR_IN1, HIGH);
+  digitalWrite(LEFT_MOTOR_IN2, LOW);
+  digitalWrite(RIGHT_MOTOR_IN1, HIGH);
+  digitalWrite(RIGHT_MOTOR_IN2, LOW);
+  analogWrite(LEFT_MOTOR_ENABLE, baseSpeed);
+  analogWrite(RIGHT_MOTOR_ENABLE, baseSpeed);
   Serial.println("Going forward");
-  delay(goForwardTime);
 }
 
 //---------------------------------------------------------------------
 //------------------Function to turn left------------------------------
 //---------------------------------------------------------------------
 
-void lTurn() {
-  digitalWrite(lForward, LOW);
-  digitalWrite(lBack, HIGH);
-  digitalWrite(rForward, HIGH);
-  digitalWrite(rBack, LOW);
+void turnLeft() {
+  digitalWrite(LEFT_MOTOR_IN1, LOW);
+  digitalWrite(LEFT_MOTOR_IN2, HIGH);
+  digitalWrite(RIGHT_MOTOR_IN1, HIGH);
+  digitalWrite(RIGHT_MOTOR_IN2, LOW);
+  analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed);
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
   Serial.println("Turning left");
   delay(turnTime);
+  stopMotors();
 }
 
 //---------------------------------------------------------------------
 //------------------Function to turn right-----------------------------
 //---------------------------------------------------------------------
 
-void rTurn() {
-  digitalWrite(rForward, LOW);
-  digitalWrite(rBack, HIGH);
-  digitalWrite(lForward, HIGH);
-  digitalWrite(lBack, LOW);
+void turnRight() {
+  digitalWrite(LEFT_MOTOR_IN1, HIGH);
+  digitalWrite(LEFT_MOTOR_IN2, LOW);
+  digitalWrite(RIGHT_MOTOR_IN1, LOW);
+  digitalWrite(RIGHT_MOTOR_IN2, HIGH);
+  analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed); 
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
   Serial.println("Turning right");
   delay(turnTime);
+  stopMotors();
 }
 
 //---------------------------------------------------------------------
@@ -180,12 +214,18 @@ void rTurn() {
 //---------------------------------------------------------------------
 
 void uTurn() {
-  digitalWrite(lForward, LOW);
-  digitalWrite(lBack, HIGH);
-  digitalWrite(rForward, HIGH);
-  digitalWrite(rBack, LOW);
-  Serial.println("Turning u");
+  stopMotors();
+  delay(200);
+  digitalWrite(LEFT_MOTOR_IN1, HIGH);
+  digitalWrite(LEFT_MOTOR_IN2, LOW);
+  digitalWrite(RIGHT_MOTOR_IN1, LOW);
+  digitalWrite(RIGHT_MOTOR_IN2, HIGH);
+  analogWrite(LEFT_MOTOR_ENABLE, uTurnSpeed); 
+  analogWrite(RIGHT_MOTOR_ENABLE, uTurnSpeed);
   delay(uTurnTime);
+  stopMotors();
+  Serial.println("Turning u");
+
   
 }
 
@@ -193,50 +233,21 @@ void uTurn() {
 //-----Function to check if the robot is at the goal position----------
 //---------------------------------------------------------------------
 
-bool isAtGoal(){ // needs to be implemented
-  if((lDist>=15 && lDist<=30) && (rDist>=15 && rDist<=30)){
+bool isAtObjective(){ 
+  int objectiveWidth = 40;
+  int objectiveHeight = 40; 
+  int robotWidth = 12; 
+
+  // Calculate the distance from left and right walls of the objective area
+  int leftDistanceFromObjective = leftDistance - (objectiveWidth / 2) + (robotWidth / 2);
+  int rightDistanceFromObjective = rightDistance - (objectiveWidth / 2) + (robotWidth / 2);
+
+  // Check if the robot is within the objective area
+  if (leftDistanceFromObjective >= 0 && rightDistanceFromObjective >= 0 &&
+      leftDistanceFromObjective <= objectiveWidth && rightDistanceFromObjective <= objectiveWidth) {
     Serial.println("We are on the objective");
     return true;
-  }
-  else{
+  } else {
     return false;
-  }
-}
-
-//---------------------------------------------------------------------
-//--------Function to make decisions based on sensor readings----------
-//---------------------------------------------------------------------
-
-void decide() { // may need optimization
-    if (isAtGoal()) {
-      stopAll();
-  } else if (fDist > fThershold) {
-      goForward();
-  } else {
-      uTurn();
-
-    if (rDist > thershold) {
-      rTurn();
-    }else if (lDist > thershold) {
-      lTurn();
-    }else {
-      uTurn();
-    }
-  }
-}
-
-//---------------------------------------------------------------------
-//---Alternative function to make decisions based on sensor readings---
-//---------------------------------------------------------------------
-
-void decide2() { //NEED OPTIMIZATION
-    if (lDist > thershold) {
-      lTurn();
-  } else if (rDist > thershold) {
-      rTurn();
-  } else if (fDist > fThershold) {
-      goForward();
-  } else {
-      uTurn();
   }
 }
