@@ -2,7 +2,7 @@
  * @file AutonoMazer.ino
  * @brief Autonomous robot control program using ultrasonic sensors and Arduino Uno.
  * @author Yasin YILDIRIM
- * @date 03/2024
+ * @date 04/2024
  * 
  * This program controls the movement of an autonomous robot using ultrasonic sensors
  * to measure distances to surrounding walls and navigate towards a goal position. It utilizes motor control
@@ -15,10 +15,10 @@
 //---------------------Ultrasonic sensor pins--------------------------
 //---------------------------------------------------------------------
 
-#define leftTrig 0
-#define leftEcho 1
-#define frontTrig 2
-#define frontEcho 3
+#define leftTrig 2
+#define leftEcho 3
+#define frontTrig 8
+#define frontEcho 11
 #define rightTrig 4
 #define rightEcho 5
 
@@ -46,12 +46,12 @@ NewPing sonarRight(rightTrig, rightEcho, MAX_DISTANCE);
 float leftDistance, rightDistance, frontDistance;
 float duration;
 
-const int baseSpeed = 225; // Need optimizations
-const int uTurnSpeed = 120;
-const int sideTurnSpeed = 150;
+const int baseSpeed = 100; // Need optimizations
+const int uTurnSpeed = 76;
+const int sideTurnSpeed = 72;
 const int lExtraSpeedSpeed = 30;
-const int turnTime = 450;
-const int uTurnTime = 750;
+const int turnTime = 430;
+const int uTurnTime = 800;
 const int goForwardTime = 250;
 // Time = Angle * Wheelbase/ Speed
 /*
@@ -96,27 +96,38 @@ void setup() {
 //---------------------------------------------------------------------
 
 void loop() {
+  stopMotors();
   readDistances(); // Read sensor data
   
-  if(frontDistance > 10){
-    while(frontDistance >10){
+  if(frontDistance > 20){
+    while(frontDistance >=20){
     goForward();
     readDistances();
-    delay(50);
+    if(frontDistance < 20){ 
+    stopMotors();
+    delay(100);
+     }
     }
   }
-  else{ stopMotors(); }
 
-  if(leftDistance > rightDistance && leftDistance >= 10){
+  if(leftDistance > rightDistance && leftDistance >= 20){
+    turnLeft();
+    readDistances();
+
+  }
+  else if(rightDistance > leftDistance && rightDistance >= 20){
+    turnRight();
+    readDistances();
+  }
+  else if((leftDistance < 15) && (rightDistance < 15) && (frontDistance < 20)){
+    uTurn();
+    readDistances();
+  }
+  else{
+    delay(100);
     turnLeft();
   }
-  else if(rightDistance > leftDistance && rightDistance >= 10){
-    turnRight();
-  }
-  else if((leftDistance < 10) && (rightDistance < 10) && (frontDistance < 10)){
-    uTurn();
-  }
-  delay(500);
+  delay(250);
 }
 
 
@@ -173,8 +184,10 @@ void goForward() {
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
   analogWrite(LEFT_MOTOR_ENABLE, baseSpeed);
-  analogWrite(RIGHT_MOTOR_ENABLE, baseSpeed);
+  analogWrite(RIGHT_MOTOR_ENABLE, baseSpeed+22);
   Serial.println("Going forward");
+  Serial.println(frontDistance);
+
 }
 
 //---------------------------------------------------------------------
@@ -187,8 +200,9 @@ void turnLeft() {
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
   analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed);
-  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed+15);
   Serial.println("Turning left");
+  Serial.println(leftDistance);
   delay(turnTime);
   stopMotors();
 }
@@ -203,8 +217,9 @@ void turnRight() {
   digitalWrite(RIGHT_MOTOR_IN1, LOW);
   digitalWrite(RIGHT_MOTOR_IN2, HIGH);
   analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed); 
-  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed+18);
   Serial.println("Turning right");
+  Serial.println(rightDistance);
   delay(turnTime);
   stopMotors();
 }
@@ -215,13 +230,13 @@ void turnRight() {
 
 void uTurn() {
   stopMotors();
-  delay(200);
+  delay(100);
   digitalWrite(LEFT_MOTOR_IN1, HIGH);
   digitalWrite(LEFT_MOTOR_IN2, LOW);
   digitalWrite(RIGHT_MOTOR_IN1, LOW);
   digitalWrite(RIGHT_MOTOR_IN2, HIGH);
-  analogWrite(LEFT_MOTOR_ENABLE, uTurnSpeed); 
-  analogWrite(RIGHT_MOTOR_ENABLE, uTurnSpeed);
+  analogWrite(LEFT_MOTOR_ENABLE, uTurnSpeed-9); 
+  analogWrite(RIGHT_MOTOR_ENABLE, uTurnSpeed+5);
   delay(uTurnTime);
   stopMotors();
   Serial.println("Turning u");
