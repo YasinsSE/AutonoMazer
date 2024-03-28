@@ -47,9 +47,10 @@ float leftDistance, rightDistance, frontDistance;
 float duration;
 
 const int baseSpeed = 100; // Need optimizations
-const int uTurnSpeed = 76;
-const int sideTurnSpeed = 72;
+const int uTurnSpeed = 100;
+const int sideTurnSpeed = 100;
 const int lExtraSpeedSpeed = 30;
+const int rExtraSpeedSpeed = 30;
 const int turnTime = 430;
 const int uTurnTime = 800;
 const int goForwardTime = 250;
@@ -184,7 +185,7 @@ void goForward() {
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
   analogWrite(LEFT_MOTOR_ENABLE, baseSpeed);
-  analogWrite(RIGHT_MOTOR_ENABLE, baseSpeed+22);
+  analogWrite(RIGHT_MOTOR_ENABLE, baseSpeed);
   Serial.println("Going forward");
   Serial.println(frontDistance);
 
@@ -200,7 +201,7 @@ void turnLeft() {
   digitalWrite(RIGHT_MOTOR_IN1, HIGH);
   digitalWrite(RIGHT_MOTOR_IN2, LOW);
   analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed);
-  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed+15);
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
   Serial.println("Turning left");
   Serial.println(leftDistance);
   delay(turnTime);
@@ -217,7 +218,7 @@ void turnRight() {
   digitalWrite(RIGHT_MOTOR_IN1, LOW);
   digitalWrite(RIGHT_MOTOR_IN2, HIGH);
   analogWrite(LEFT_MOTOR_ENABLE, sideTurnSpeed); 
-  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed+18);
+  analogWrite(RIGHT_MOTOR_ENABLE, sideTurnSpeed);
   Serial.println("Turning right");
   Serial.println(rightDistance);
   delay(turnTime);
@@ -235,8 +236,8 @@ void uTurn() {
   digitalWrite(LEFT_MOTOR_IN2, LOW);
   digitalWrite(RIGHT_MOTOR_IN1, LOW);
   digitalWrite(RIGHT_MOTOR_IN2, HIGH);
-  analogWrite(LEFT_MOTOR_ENABLE, uTurnSpeed-9); 
-  analogWrite(RIGHT_MOTOR_ENABLE, uTurnSpeed+5);
+  analogWrite(LEFT_MOTOR_ENABLE, uTurnSpeed); 
+  analogWrite(RIGHT_MOTOR_ENABLE, uTurnSpeed);
   delay(uTurnTime);
   stopMotors();
   Serial.println("Turning u");
